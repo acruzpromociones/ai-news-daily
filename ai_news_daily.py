@@ -16,8 +16,8 @@ client = Anthropic()
 # Configuration
 GMAIL_USER = os.getenv("GMAIL_USER", "your_email@gmail.com")
 GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD", "your_app_password")
-WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY", "")
-WHATSAPP_PHONE = "+57 3144447492"
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TARGET_EMAIL = "acruz@promocionesfantasticas.com"
 TARGET_WHATSAPP = "+573144447492"  # without spaces
 
@@ -261,41 +261,39 @@ def send_email(subject, html_body):
         return False
 
 def send_whatsapp(message):
-    """Send message via WhatsApp API (Twilio)."""
+    """Send message via WhatsApp using Twilio."""
     try:
-        if not WHATSAPP_API_KEY:
-            print("⚠ WhatsApp API key not configured")
+        if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
+            print("⚠ WhatsApp: Twilio credentials not configured")
             return False
         
-        # Using Twilio API
-        import base64
-        headers = {
-            'Authorization': f'Bearer {WHATSAPP_API_KEY}',
-            'Content-Type': 'application/json'
-        }
+        # Twilio API endpoint
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
+        
+        # Twilio uses a special WhatsApp sender number format
+        # For sandbox, it's typically: whatsapp:+14155552671 (Twilio's sandbox number)
+        # You need to use the actual WhatsApp Business Account sender number in production
+        twilio_whatsapp_sender = "whatsapp:+14155552671"  # Twilio sandbox number
+        twilio_whatsapp_receiver = f"whatsapp:{TARGET_WHATSAPP}"
         
         data = {
-            "messaging_product": "whatsapp",
-            "to": TARGET_WHATSAPP,
-            "type": "text",
-            "text": {
-                "preview_url": True,
-                "body": message
-            }
+            "From": twilio_whatsapp_sender,
+            "To": twilio_whatsapp_receiver,
+            "Body": message
         }
         
         response = requests.post(
-            "https://graph.instagram.com/v18.0/YOUR_PHONE_NUMBER_ID/messages",
-            headers=headers,
-            json=data,
+            url,
+            data=data,
+            auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
             timeout=10
         )
         
-        if response.status_code == 200:
+        if response.status_code in [200, 201]:
             print(f"✓ WhatsApp sent to {TARGET_WHATSAPP}")
             return True
         else:
-            print(f"⚠ WhatsApp API error: {response.status_code}")
+            print(f"⚠ WhatsApp error: {response.status_code} - {response.text}")
             return False
             
     except Exception as e:
